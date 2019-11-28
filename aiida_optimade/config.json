@@ -4,10 +4,10 @@
   "db_page_limit": 500,
   "index_base_url": null,
   "provider": {
-    "prefix": "_aiida_",
-    "name": "AiiDA",
-    "description": "AiiDA: Automated Interactive Infrastructure and Database for Computational Science (http://www.aiida.net)",
-    "homepage": "http://www.aiida.net"
+    "prefix": "_mcloud_",
+    "name": "Materials Cloud",
+    "description": "A platform for Open Science built for seamless sharing of resources in computational materials science",
+    "homepage": "https://www.materialscloud.org"
   },
   "provider_fields": {
     "structures": [
