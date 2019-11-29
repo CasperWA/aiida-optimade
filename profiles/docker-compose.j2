@@ -6,6 +6,9 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
+      args:
+        # replace default value by v1.0.1 once released
+        AIIDA_VERSION: 196a074c45774de2c4bde6dbebb8b952b695eb4a
     environment:
       AIIDA_PATH: /app
       AIIDA_PROFILE: {{ aiida_profile }}
