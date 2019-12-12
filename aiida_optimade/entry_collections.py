@@ -66,9 +66,7 @@ class AiidaCollection:
         return set(attributes["properties"].keys())
 
     @staticmethod
-    def _find(
-        entity_type: orm.Entity, **kwargs
-    ) -> orm.QueryBuilder:
+    def _find(entity_type: orm.Entity, **kwargs) -> orm.QueryBuilder:
         for key in kwargs:
             if key not in {"filters", "order_by", "limit", "project", "offset"}:
                 raise ValueError(
@@ -83,23 +81,21 @@ class AiidaCollection:
         offset = kwargs.get("offset", None)
         project = kwargs.get("project", [])
 
-        query = orm.QueryBuilder(given_close_session_on_exit=True, limit=limit, offset=offset)
+        query = orm.QueryBuilder(
+            given_close_session_on_exit=True, limit=limit, offset=offset
+        )
         query.append(entity_type, project=project, filters=filters)
         query.order_by(order_by)
 
         return query
 
-    def _find_all(
-        self, **kwargs
-    ) -> orm.QueryBuilder:
+    def _find_all(self, **kwargs) -> orm.QueryBuilder:
         query = self._find(self.collection.entity_type, **kwargs)
         res = query.all()
         del query
         return res
 
-    def count(
-        self, **kwargs
-    ) -> int:
+    def count(self, **kwargs) -> int:
         query = self._find(self.collection.entity_type, **kwargs)
         res = query.count()
         del query
@@ -142,8 +138,7 @@ class AiidaCollection:
             self._data_returned = self.count(**criteria)
 
     def find(
-        self,
-        params: Union[EntryListingQueryParams, SingleEntryQueryParams],
+        self, params: Union[EntryListingQueryParams, SingleEntryQueryParams],
     ) -> Tuple[List[EntryResource], NonnegativeInt, bool, NonnegativeInt, set]:
         self.set_data_available()
         criteria = self._parse_params(params)
@@ -326,11 +321,13 @@ class AiidaCollection:
                 {".".join(extras_keys): {"or": filter_fields}},
             ]
         }
-        project="id"
+        project = "id"
 
         if self.count(filters=filters) > 0:
             # Necessary entities for the OPTiMaDe query exist with unknown OPTiMaDe fields.
-            necessary_entity_ids = [pk[0] for pk in self._find_all(filters=filters, project=project)]
+            necessary_entity_ids = [
+                pk[0] for pk in self._find_all(filters=filters, project=project)
+            ]
 
             # Create the missing OPTiMaDe fields:
             # All OPTiMaDe fields
@@ -340,7 +337,9 @@ class AiidaCollection:
             fields |= {self.provider + _ for _ in self.provider_fields}
             fields = list({self.resource_mapper.alias_for(f) for f in fields})
 
-            entities = self._find_all(filters={"id": {"in": necessary_entity_ids}}, project=fields)
+            entities = self._find_all(
+                filters={"id": {"in": necessary_entity_ids}}, project=fields
+            )
             for entity in entities:
                 self.resource_cls(
                     **self.resource_mapper.map_back(dict(zip(fields, entity)))

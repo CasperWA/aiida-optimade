@@ -34,8 +34,7 @@ structures = AiidaCollection(
     tags=["Structure"],
 )
 def get_structures(
-    request: Request,
-    params: EntryListingQueryParams = Depends(),
+    request: Request, params: EntryListingQueryParams = Depends(),
 ):
     return get_entries(
         collection=structures,
@@ -52,9 +51,7 @@ def get_structures(
     tags=["Structure"],
 )
 def get_single_structure(
-    request: Request,
-    entry_id: int,
-    params: SingleEntryQueryParams = Depends(),
+    request: Request, entry_id: int, params: SingleEntryQueryParams = Depends(),
 ):
     return get_single_entry(
         collection=structures,
