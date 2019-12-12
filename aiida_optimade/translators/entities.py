@@ -24,7 +24,7 @@ class AiidaEntityTranslator:
         self.__node = None
 
     def _get_unique_node_property(self, project: str) -> Union[Node, Any]:
-        query = QueryBuilder(limit=1)
+        query = QueryBuilder(given_close_session_on_exit=True, limit=1)
         query.append(self.AIIDA_ENTITY, filters={"id": self._pk}, project=project)
         if query.count() != 1:
             raise AiidaEntityNotFound(

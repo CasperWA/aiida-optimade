@@ -36,10 +36,8 @@ structures = AiidaCollection(
 def get_structures(
     request: Request,
     params: EntryListingQueryParams = Depends(),
-    backend: orm.implementation.Backend = Depends(get_backend),
 ):
     return get_entries(
-        backend=backend,
         collection=structures,
         response=StructureResponseMany,
         request=request,
@@ -57,10 +55,8 @@ def get_single_structure(
     request: Request,
     entry_id: int,
     params: SingleEntryQueryParams = Depends(),
-    backend: orm.implementation.Backend = Depends(get_backend),
 ):
     return get_single_entry(
-        backend=backend,
         collection=structures,
         entry_id=entry_id,
         response=StructureResponseOne,

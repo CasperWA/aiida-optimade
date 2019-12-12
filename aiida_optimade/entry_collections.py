@@ -67,7 +67,7 @@ class AiidaCollection:
 
     @staticmethod
     def _find(
-        backend: orm.implementation.Backend, entity_type: orm.Entity, **kwargs
+        entity_type: orm.Entity, **kwargs
     ) -> orm.QueryBuilder:
         for key in kwargs:
             if key not in {"filters", "order_by", "limit", "project", "offset"}:
@@ -83,24 +83,24 @@ class AiidaCollection:
         offset = kwargs.get("offset", None)
         project = kwargs.get("project", [])
 
-        query = orm.QueryBuilder(backend=backend, limit=limit, offset=offset)
+        query = orm.QueryBuilder(given_close_session_on_exit=True, limit=limit, offset=offset)
         query.append(entity_type, project=project, filters=filters)
         query.order_by(order_by)
 
         return query
 
     def _find_all(
-        self, backend: orm.implementation.Backend, **kwargs
+        self, **kwargs
     ) -> orm.QueryBuilder:
-        query = self._find(backend, self.collection.entity_type, **kwargs)
+        query = self._find(self.collection.entity_type, **kwargs)
         res = query.all()
         del query
         return res
 
     def count(
-        self, backend: orm.implementation.Backend, **kwargs
-    ):  # pylint: disable=arguments-differ
-        query = self._find(backend, self.collection.entity_type, **kwargs)
+        self, **kwargs
+    ) -> int:
+        query = self._find(self.collection.entity_type, **kwargs)
         res = query.count()
         del query
         return res
@@ -113,10 +113,10 @@ class AiidaCollection:
             )
         return self._data_available
 
-    def set_data_available(self, backend: orm.implementation.Backend):
+    def set_data_available(self):
         """Set _data_available if it has not yet been set"""
         if not self._data_available:
-            self._data_available = self.count(backend)
+            self._data_available = self.count()
 
     @property
     def data_returned(self) -> int:
@@ -126,7 +126,7 @@ class AiidaCollection:
             )
         return self._data_returned
 
-    def set_data_returned(self, backend: orm.implementation.Backend, **criteria):
+    def set_data_returned(self, **criteria):
         """Set _data_returned if it has not yet been set or new filter does not equal latest filter.
 
         NB! Nested lists in filters are not accounted for.
@@ -139,14 +139,13 @@ class AiidaCollection:
                 if key in list(criteria.keys()):
                     del criteria[key]
             self._latest_filter = criteria.get("filters", {})
-            self._data_returned = self.count(backend, **criteria)
+            self._data_returned = self.count(**criteria)
 
-    def find(  # pylint: disable=arguments-differ
+    def find(
         self,
-        backend: orm.implementation.Backend,
         params: Union[EntryListingQueryParams, SingleEntryQueryParams],
     ) -> Tuple[List[EntryResource], NonnegativeInt, bool, NonnegativeInt, set]:
-        self.set_data_available(backend)
+        self.set_data_available()
         criteria = self._parse_params(params)
 
         all_fields = criteria.pop("fields")
@@ -156,11 +155,11 @@ class AiidaCollection:
             fields = all_fields.copy()
 
         if criteria.get("filters", {}) and self._get_extras_filter_fields():
-            self._check_and_calculate_entities(backend)
+            self._check_and_calculate_entities()
 
-        self.set_data_returned(backend, **criteria)
+        self.set_data_returned(**criteria)
 
-        entities = self._find_all(backend, **criteria)
+        entities = self._find_all(**criteria)
         results = []
         for entity in entities:
             results.append(
@@ -174,9 +173,7 @@ class AiidaCollection:
         if isinstance(params, EntryListingQueryParams):
             criteria_no_limit = criteria.copy()
             criteria_no_limit.pop("limit", None)
-            more_data_available = len(results) < self.count(
-                backend, **criteria_no_limit
-            )
+            more_data_available = len(results) < self.count(**criteria_no_limit)
         else:
             more_data_available = False
             if len(results) > 1:
@@ -312,7 +309,7 @@ class AiidaCollection:
             if field.startswith(self.resource_mapper.PROJECT_PREFIX)
         }
 
-    def _check_and_calculate_entities(self, backend: orm.implementation.Backend):
+    def _check_and_calculate_entities(self):
         """Check all entities have OPTiMaDe extras, else calculate them
 
         For a bit of optimization, we only care about a field if it has specifically been queried for using "filter".
@@ -323,7 +320,7 @@ class AiidaCollection:
         filter_fields = [
             {"!has_key": field for field in self._get_extras_filter_fields()}
         ]
-        necessary_entities_qb = orm.QueryBuilder().append(
+        necessary_entities_qb = orm.QueryBuilder(given_close_session_on_exit=True).append(
             self.collection.entity_type,
             filters={
                 "or": [
@@ -346,9 +343,7 @@ class AiidaCollection:
             fields |= {self.provider + _ for _ in self.provider_fields}
             fields = list({self.resource_mapper.alias_for(f) for f in fields})
 
-            entities = self._find_all(
-                backend, filters={"id": {"in": necessary_entity_ids}}, project=fields
-            )
+            entities = self._find_all(filters={"id": {"in": necessary_entity_ids}}, project=fields)
             for entity in entities:
                 self.resource_cls(
                     **self.resource_mapper.map_back(dict(zip(fields, entity)))
