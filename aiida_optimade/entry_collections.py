@@ -320,20 +320,17 @@ class AiidaCollection:
         filter_fields = [
             {"!has_key": field for field in self._get_extras_filter_fields()}
         ]
-        necessary_entities_qb = orm.QueryBuilder(given_close_session_on_exit=True).append(
-            self.collection.entity_type,
-            filters={
-                "or": [
-                    {extras_keys[0]: {"!has_key": extras_keys[1]}},
-                    {".".join(extras_keys): {"or": filter_fields}},
-                ]
-            },
-            project="id",
-        )
+        filters = {
+            "or": [
+                {extras_keys[0]: {"!has_key": extras_keys[1]}},
+                {".".join(extras_keys): {"or": filter_fields}},
+            ]
+        }
+        project="id"
 
-        if necessary_entities_qb.count() > 0:
+        if self.count(filters=filters) > 0:
             # Necessary entities for the OPTiMaDe query exist with unknown OPTiMaDe fields.
-            necessary_entity_ids = [pk[0] for pk in necessary_entities_qb.iterall()]
+            necessary_entity_ids = [pk[0] for pk in self._find_all(filters=filters, project=project)]
 
             # Create the missing OPTiMaDe fields:
             # All OPTiMaDe fields

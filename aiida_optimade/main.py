@@ -40,38 +40,38 @@ while version:
     version.pop(-1)
 
 
-@app.middleware("http")
-async def backend_middleware(request: Request, call_next):
-    response = None
-    try:
-        # if profile.database_backend == "django":
-        #     from aiida_optimade.aiida_session import (
-        #         OptimadeDjangoBackend as OptimadeBackend,
-        #     )
+# @app.middleware("http")
+# async def backend_middleware(request: Request, call_next):
+#     response = None
+#     try:
+#         if profile.database_backend == "django":
+#             from aiida_optimade.aiida_session import (
+#                 OptimadeDjangoBackend as OptimadeBackend,
+#             )
 
-        #     from warnings import warn
+#             from warnings import warn
 
-        #     warn(
-        #         "The django backend does not support the special 1 AiiDA DB session per 1 HTTP request implemented in this package!"
-        #     )
+#             warn(
+#                 "The django backend does not support the special 1 AiiDA DB session per 1 HTTP request implemented in this package!"
+#             )
 
-        # elif profile.database_backend == "sqlalchemy":
-        #     from aiida_optimade.aiida_session import (
-        #         OptimadeSqlaBackend as OptimadeBackend,
-        #     )
-        # else:
-        #     raise AiidaError(
-        #         f'Unknown AiiDA backend "{profile.database_backend}" for profile {profile}'
-        #     )
+#         elif profile.database_backend == "sqlalchemy":
+#             from aiida_optimade.aiida_session import (
+#                 OptimadeSqlaBackend as OptimadeBackend,
+#             )
+#         else:
+#             raise AiidaError(
+#                 f'Unknown AiiDA backend "{profile.database_backend}" for profile {profile}'
+#             )
 
-        # request.state.backend = OptimadeBackend()
-        response = await call_next(request)
-    finally:
-        request.state.backend.close()
+#         request.state.backend = OptimadeBackend()
+#         response = await call_next(request)
+#     finally:
+#         request.state.backend.close()
 
-    if response:
-        return response
-    raise AiidaError("Failed to properly handle AiiDA backend middleware")
+#     if response:
+#         return response
+#     raise AiidaError("Failed to properly handle AiiDA backend middleware")
 
 
 app.add_exception_handler(StarletteHTTPException, exc_handlers.http_exception_handler)
