@@ -43,7 +43,7 @@ setup(
     python_requires=">=3.7",
     install_requires=[
         "aiida-core>=1.0.0",
-        "fastapi==0.44.0",
+        "fastapi==0.52.0",
         "lark-parser>=0.7.7",
         "optimade>=0.2.0",
         "pydantic<1.0.0",
