@@ -16,7 +16,7 @@ def client():
 def get_good_response(client):
     """Get OPTIMADE response with some sanity checks"""
 
-    def inner(request):
+    def _get_good_response(request):
         try:
             response = client.get(request)
             assert response.status_code == 200, f"Request failed: {response.json()}"
@@ -28,7 +28,7 @@ def get_good_response(client):
         else:
             return response
 
-    return inner
+    return _get_good_response
 
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def check_response(get_good_response):
     """Fixture to check response using client fixture"""
     from optimade.server.config import CONFIG
 
-    def inner(
+    def _check_response(
         request: str,
         expected_uuid: List[str],
         page_limit: int = CONFIG.page_limit,
@@ -66,14 +66,14 @@ def check_response(get_good_response):
         else:
             assert expected_uuid == response_uuids
 
-    return inner
+    return _check_response
 
 
 @pytest.fixture
 def check_error_response(client):
     """General method for testing expected errornous response"""
 
-    def inner(
+    def _check_error_response(
         request: str,
         expected_status: int = None,
         expected_title: str = None,
@@ -113,4 +113,4 @@ def check_error_response(client):
                 print(f"\nCaptured response:\n{response}")
             raise exc
 
-    return inner
+    return _check_error_response
