@@ -43,6 +43,25 @@ LINKS_DATA = Path(__file__).parent.joinpath("data/links.json").resolve()
 with open(LINKS_DATA) as handle:
     data = json.load(handle)
 
+    if CONFIG.debug:
+        data.append(
+            {
+                "id": "local",
+                "type": "links",
+                "name": "Local Database",
+                "description": (
+                    "Local-running instance of AiiDA-OPTIMADE running in debug-mode."
+                ),
+                "base_url": (
+                    CONFIG.base_url
+                    if CONFIG.base_url is not None
+                    else "http://localhost:5000"
+                ),
+                "homepage": "http://www.aiida.net/",
+                "link_type": "child",
+            }
+        )
+
     processed = []
     for link in data:
         link["_id"] = {"$oid": mongo_id_for_database(link["id"], link["type"])}
