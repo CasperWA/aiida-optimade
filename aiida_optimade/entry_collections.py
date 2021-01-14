@@ -12,6 +12,7 @@ from optimade.server.config import CONFIG
 from optimade.server.query_params import EntryListingQueryParams, SingleEntryQueryParams
 
 from aiida_optimade.common import CausationError
+from aiida_optimade.common.logger import LOGGER
 from aiida_optimade.mappers import ResourceMapper
 from aiida_optimade.transformers import AiidaTransformer
 from aiida_optimade.utils import retrieve_queryable_properties
@@ -69,6 +70,8 @@ class AiidaCollection:
     @staticmethod
     def _find(node_types: List[str], **kwargs) -> QueryBuilder:
         """Workhorse function to perform AiiDA QueryBuilder query"""
+        from aiida_optimade.utils import render_query
+
         for key in kwargs:
             if key not in {"filters", "order_by", "limit", "project", "offset"}:
                 raise ValueError(
@@ -87,6 +90,13 @@ class AiidaCollection:
         query = QueryBuilder(limit=limit, offset=offset)
         query.append(Node, project=project, filters=filters)
         query.order_by(order_by)
+
+        # LOGGER.debug("QueryBuilder: %s", print(query))
+        sql_query = query.get_query()
+        LOGGER.debug(
+            "QueryBuilder (from Gio's function):\n%s",
+            render_query(sql_query, sql_query.session),
+        )
 
         return query
 
