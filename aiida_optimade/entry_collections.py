@@ -50,6 +50,8 @@ class AiidaCollection:
         self._data_returned: int = None
         self._filter_fields: set = None
         self._latest_filter: dict = None
+        self._count: dict = None
+        self._checked_extras_filter_fields: set = set()
 
     def get_attribute_fields(self) -> set:
         """Get all attribute properties/fields for OPTIMADE entity"""
@@ -91,10 +93,10 @@ class AiidaCollection:
         query.append(Node, project=project, filters=filters)
         query.order_by(order_by)
 
-        # LOGGER.debug("QueryBuilder: %s", print(query))
         sql_query = query.get_query()
         LOGGER.debug(
-            "QueryBuilder (from Gio's function):\n%s",
+            "QueryBuilder properties: %s\n\n%s\n",
+            kwargs,
             render_query(sql_query, sql_query.session),
         )
 
@@ -102,17 +104,82 @@ class AiidaCollection:
 
     def _find_all(self, **kwargs) -> list:
         """Execute AiiDA QueryBuilder query, return all results."""
+        LOGGER.debug(
+            "Using QueryBuilder to get ALL projected values from found entries."
+        )
         query = self._find(self.entities, **kwargs)
         res = query.all()
         del query
         return res
 
-    def count(self, **kwargs) -> int:
-        """Count amount of data returned for query"""
+    def _perform_count(self, **kwargs) -> int:
+        """Instantiate new QueryBuilder object and perform count()"""
+        LOGGER.debug("Using QueryBuilder to COUNT all found entries.")
         query = self._find(self.entities, **kwargs)
         res = query.count()
         del query
         return res
+
+    def count(self, **kwargs) -> int:
+        """Count amount of data returned for query"""
+        LOGGER.debug("Calling count function in EntryCollection.")
+        if self._count is None:
+            LOGGER.debug("self._count is None")
+            self._count = {
+                "count": self._perform_count(**kwargs),
+                "filters": kwargs.get("filters", {}),
+                "limit": kwargs.get("limit", None),
+                "offset": kwargs.get("offset", None),
+            }
+        else:
+            for limiting_param in {"filters", "limit", "offset"}:
+                if kwargs.get(limiting_param, None) != self._count.get(
+                    limiting_param, None
+                ):
+                    if limiting_param == "filters":
+                        # As the `node_type` field is added to the filters in `_find()`,
+                        # this will make sure to check the _actual_ requested filter fields.
+                        count_copy = self._count.get(limiting_param, {}).copy()
+                        kwargs_copy = kwargs.get(limiting_param, {}).copy()
+                        count_copy.pop("node_type", None)
+                        kwargs_copy.pop("node_type", None)
+                        if kwargs_copy == count_copy:
+                            continue
+                    elif limiting_param == "offset":
+                        if not kwargs.get(limiting_param, None) and not self._count.get(
+                            limiting_param, None
+                        ):
+                            # This will check also if offset in either is set to 0.
+                            # There is no difference if the default page_offset is requested.
+                            continue
+                    elif limiting_param == "limit":
+                        if (
+                            kwargs.get(limiting_param, None) is None
+                            or kwargs.get(limiting_param, None) == CONFIG.page_limit
+                        ) and (
+                            self._count.get(limiting_param, None) is None
+                            or self._count.get(limiting_param, None)
+                            == CONFIG.page_limit
+                        ):
+                            # There is no difference if the default page_limit is requested.
+                            continue
+                    LOGGER.debug(
+                        "%s was not the same as was found in self._count:\nself._count = %s\nkwargs = %s",
+                        limiting_param,
+                        self._count.get(limiting_param, None),
+                        kwargs.get(limiting_param, None),
+                    )
+                    self._count = {
+                        "count": self._perform_count(**kwargs),
+                        "filters": kwargs.get("filters", {}),
+                        "limit": kwargs.get("limit", None),
+                        "offset": kwargs.get("offset", None),
+                    }
+                    break
+            else:
+                LOGGER.debug("Using self._count")
+
+        return self._count.get("count", 0)
 
     @property
     def data_available(self) -> int:
@@ -126,7 +193,10 @@ class AiidaCollection:
     def set_data_available(self):
         """Set _data_available if it has not yet been set"""
         if not self._data_available:
-            self._data_available = self.count()
+            LOGGER.debug("Setting data_available!")
+            self._data_available = self.count(project="id")
+        else:
+            LOGGER.debug("Not setting data_available - already set.")
 
     @property
     def data_returned(self) -> int:
@@ -150,8 +220,13 @@ class AiidaCollection:
             for key in ["limit", "offset"]:
                 if key in list(criteria.keys()):
                     del criteria[key]
-            self._latest_filter = criteria.get("filters", {})
+            self._latest_filter = criteria.get("filters", {}).copy()
+            LOGGER.debug("Setting data_returned using filter: %s", self._latest_filter)
             self._data_returned = self.count(**criteria)
+        else:
+            LOGGER.debug(
+                "Not re-setting data_returned, since the filter is the same as the latest filter."
+            )
 
     def find(
         self, params: Union[EntryListingQueryParams, SingleEntryQueryParams]
@@ -168,7 +243,24 @@ class AiidaCollection:
             fields = all_fields.copy()
 
         if criteria.get("filters", {}) and self._get_extras_filter_fields():
-            self._check_and_calculate_entities()
+            for requested_extras_field in self._get_extras_filter_fields():
+                if requested_extras_field not in self._checked_extras_filter_fields:
+                    LOGGER.debug(
+                        "Checking all extras fields have been calculated (and possibly calculate them)."
+                    )
+                    self._check_and_calculate_entities()
+                    self._checked_extras_filter_fields |= (
+                        self._get_extras_filter_fields()
+                    )
+                    break
+            else:
+                LOGGER.debug(
+                    "Not checking extras fields. Fields have already been checked."
+                )
+        else:
+            LOGGER.debug(
+                "Not checking extras fields. No filter and/or no extras fields requested."
+            )
 
         self.set_data_returned(**criteria)
 
@@ -184,9 +276,10 @@ class AiidaCollection:
             )
 
         if isinstance(params, EntryListingQueryParams):
-            criteria_no_limit = criteria.copy()
-            criteria_no_limit.pop("limit", None)
-            more_data_available = len(results) < self.count(**criteria_no_limit)
+            criteria_copy = criteria.copy()
+            criteria_copy.pop("limit", None)
+            offset = criteria_copy.pop("offset", 0)
+            more_data_available = len(results) < (self.count(**criteria_copy) - offset)
         else:
             more_data_available = False
             if len(results) > 1:
