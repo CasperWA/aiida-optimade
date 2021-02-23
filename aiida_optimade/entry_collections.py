@@ -450,6 +450,7 @@ class AiidaCollection:
         filter_fields = [
             {"!has_key": field} for field in self._get_extras_filter_fields()
         ]
+        LOGGER.debug("Finding all for necessary_entities_qb in collection")
         necessary_entities_qb = (
             self._find_all(
                 filters={
@@ -475,11 +476,20 @@ class AiidaCollection:
             fields |= {f"_{self.provider}_" + _ for _ in self.provider_fields}
             fields = list({self.resource_mapper.alias_for(_) for _ in fields})
 
-            entities = self._find_all(
-                filters={"id": {"in": necessary_entity_ids}}, project=fields
-            )
+            LOGGER.debug("Finding all for entities in necessary_entities_qb block")
+            entities_builder = None
+            if self.count() == len(necessary_entity_ids):
+                LOGGER.debug("Not using filters to find entities")
+                entities_builder = self._find(self.entities, project=fields)
+                entities = entities_builder.iterall()
+            else:
+                LOGGER.debug("Using filters to find entities")
+                entities = self._find_all(
+                    filters={"id": {"in": necessary_entity_ids}}, project=fields
+                )
 
             if cli:
+                LOGGER.debug("Will start to calculate fields now (from cli block)")
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     _update_entities(
@@ -487,7 +497,13 @@ class AiidaCollection:
                         fields,
                     )
             else:
+                LOGGER.debug(
+                    "Will start to calculate fields now (from cli=False block, not using tqdm)"
+                )
                 _update_entities(entities, fields)
+            del entities_builder
+            LOGGER.debug("Will return necessary_entity_ids now")
             return necessary_entity_ids
 
+        LOGGER.debug("Will return an empty list now")
         return []
